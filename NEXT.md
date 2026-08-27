@@ -19,9 +19,16 @@ demo works. 10 tests green. Runtime deps: numpy/scipy/pandas only.
    or (b) run lm-eval-harness locally on a few small models with --log_samples and
    feed the dir to from_lm_eval. Then write examples/real_leaderboard.py. This is
    the "generational" proof and the top priority once a token exists.
-2. **IRT-based DIF** (Lord's chi-square, Raju's area). Needs a validated 2PL
-   backend — use `py-irt` (add as dep) or implement MML 2PL and validate against
-   `mirt`/`py-irt`. Do NOT ship unvalidated IRT.
+2. **IRT-based DIF** — 2PL BACKEND DONE. `benchdif.fit_2pl` is a numpy/scipy
+   Bock-Aitkin MML-EM estimator, validated by parameter recovery (corr_a>0.99,
+   corr_b>0.999, RMSE~0.05 across seeds; see validation/validate_twopl.py). STILL
+   TODO: the DIF test on top. Cleanest validated route is IRT-LR (Thissen): a
+   concurrent multi-group 2PL with anchor items, comparing the studied item
+   constrained-equal vs freed across groups via an LR chi-square. Alternative:
+   Lord's Wald chi-square / Raju's signed+unsigned area, which need cross-group
+   linking (mean-mean or Stocking-Lord on anchors) — the linking is the crux and
+   must be validated (simulate group-specific params, confirm recovery + correct
+   flags). Do NOT ship the DIF test until it's validated the same way.
 3. **Logistic purification** (mirror the MH purify loop).
 4. **Freeze fixtures**: store statsmodels reference values as CSV in tests/ so the
    cross-check tests need no statsmodels at runtime (currently importorskip).

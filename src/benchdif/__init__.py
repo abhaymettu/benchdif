@@ -6,6 +6,7 @@ cross-checked numerically against independent reference implementations.
 """
 from benchdif.dif import mantel_haenszel, logistic
 from benchdif.adapters import from_long, from_matrix, from_lm_eval
+from benchdif.irt import fit_2pl
 
-__all__ = ["mantel_haenszel", "logistic", "from_long", "from_matrix", "from_lm_eval"]
+__all__ = ["mantel_haenszel", "logistic", "from_long", "from_matrix", "from_lm_eval", "fit_2pl"]
 __version__ = "0.1.0"

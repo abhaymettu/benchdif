@@ -34,3 +34,17 @@ needs. This is what makes it a benchmarking tool, not a re-implementation of dif
 
 **Stack.** Python 3.12, numpy/scipy/pandas, statsmodels for logistic (matches R glm).
 uv for env. Not R — the point is a Python-native tool for the ML world.
+
+## 2026-08-27 — IRT backend + real-data adapter
+
+**2PL by hand, not py-irt.** Implemented Bock-Aitkin MML-EM in numpy/scipy rather
+than depend on py-irt (torch/pyro). Keeps runtime deps light (the adoption bet) and
+the M-step reuses the logistic IRLS already written. Validated by parameter recovery
+(the standard for an estimator) instead of an external oracle: simulate known (a,b),
+refit, corr_a>0.99 / corr_b>0.999. This is the foundation for IRT-based DIF.
+
+**Real-data blocked on gating, adapter shipped anyway.** Open LLM Leaderboard
+details repos (996) are gated (HTTP 401 without a token + per-repo ToS), and no
+ungated multi-model per-question dataset surfaced. Built and tested `from_lm_eval`
+(reads lm-eval-harness --log_samples JSONL) so the pipeline is ready the moment
+real logs exist; documented the token/local-run paths in NEXT.md.
