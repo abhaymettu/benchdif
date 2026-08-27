@@ -25,6 +25,24 @@ The real-vs-permuted gap (up to ~50x) is the finding: a large share of items are
 answered differently by Mistral-derived and Llama-2-derived models **after
 conditioning on overall ability**. It replicates across six independent benchmarks.
 
+## Scale-level: measurement invariance also fails
+
+On the smallest benchmark where the multi-group 2PL is tractable
+(MMLU us_foreign_policy, 79 models x 90 non-degenerate items), the invariance
+omnibus rejects **both** levels, with a permutation control confirming it:
+
+| labels | metric chi2 (df=89) | scalar chi2 (df=89) |
+|---|---:|---:|
+| **real** | **212.1** (p=5e-12) | **232.1** (p=1e-14) |
+| permuted #1 | 101.2 (n.s.) | 83.5 (n.s.) |
+| permuted #2 | 25.1 (n.s.) | 69.9 (n.s.) |
+| permuted #3 | 1.4 (n.s.) | 90.2 (n.s.) |
+
+Metric invariance failing means the items do not even relate to ability the same
+way across families — a stronger statement than individual items misbehaving. The
+scale is not measuring the same thing in the same units for Mistral- and Llama-2-
+derived models.
+
 ## What this does and does not mean
 
 - **Does mean:** these benchmarks are not strictly score-comparable across model
