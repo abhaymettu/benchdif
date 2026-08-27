@@ -53,6 +53,10 @@ from benchdif import detect
 summary = detect(responses, group, method="irt")   # 'mh' | 'logistic' | 'irt'
 summary[summary.flag]                                # items with DIF
 
+# more than two groups (e.g. many model families) -- generalized MH
+from benchdif import generalized_mantel_haenszel
+generalized_mantel_haenszel(responses, group_labels)   # group_labels has >=2 levels
+
 # measurement-invariance omnibus (scale-level: configural -> metric -> scalar)
 from benchdif import invariance
 inv = invariance(responses, group)   # rows metric/scalar: stat, df, p_value, holds
@@ -60,6 +64,12 @@ inv = invariance(responses, group)   # rows metric/scalar: stat, df, p_value, ho
 
 Returns a DataFrame per item: MH chi-square (`stat`), `p_value`, `alpha_mh`,
 ETS `mh_ddif`, `flag`, and ETS class `ets` (A/B/C).
+
+## Example
+
+`examples/quickstart.py` exercises every public function on a simulated benchmark
+(300 models, a leaked item), and `examples/contamination_demo.py` shows a leak
+invisible to accuracy caught by DIF. Run either with `uv run python examples/<file>`.
 
 ## Validation
 
