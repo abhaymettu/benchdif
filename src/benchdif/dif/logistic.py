@@ -63,7 +63,8 @@ def _nagelkerke(ll_full, ll_null, n):
     return cox / denom if denom > 0 else np.nan
 
 
-def logistic(responses, group, kind: str = "both") -> pd.DataFrame:
+def logistic(responses, group, kind: str = "both", purify=False,
+             max_iter=10) -> pd.DataFrame:
     """Logistic-regression DIF on every item.
 
     Parameters
@@ -71,6 +72,12 @@ def logistic(responses, group, kind: str = "both") -> pd.DataFrame:
     responses : (n_persons x n_items) 0/1 array, no missing.
     group : (n_persons,) coded 0=reference, 1=focal.
     kind : 'both' (2 df), 'uniform' (1 df), or 'nonuniform' (1 df).
+    purify : bool
+        Iteratively recompute the matching score from anchor (non-flagged)
+        items and re-test until the flagged set is stable. Adds a 'niter'
+        attribute to the result.
+    max_iter : int
+        Cap on purification iterations.
 
     Returns DataFrame per item: stat (LR chi-square), df, p_value,
     delta_r2 (Nagelkerke, M0->M2), flag (p<.05), jg (A/B/C).
@@ -91,34 +98,50 @@ def logistic(responses, group, kind: str = "both") -> pd.DataFrame:
     n, n_items = X.shape
     total = X.sum(axis=1)
     ones = np.ones(n)
-    rows = []
-    for j in range(n_items):
-        y = X[:, j]
-        S = total  # difR matches on total score including studied item
-        d0 = np.column_stack([ones, S])
-        d1 = np.column_stack([ones, S, g])
-        d2 = np.column_stack([ones, S, g, S * g])
-        _, ll0 = _irls(d0, y)
-        _, ll1 = _irls(d1, y)
-        _, ll2 = _irls(d2, y)
-        if kind == "both":
-            stat, df = 2 * (ll2 - ll0), 2
-        elif kind == "uniform":
-            stat, df = 2 * (ll1 - ll0), 1
-        else:
-            stat, df = 2 * (ll2 - ll1), 1
-        stat = max(stat, 0.0)
-        p = float(_chi2.sf(stat, df))
-        # effect size always M0 -> M2 (Zumbo-Thomas), classified Jodoin-Gierl
-        dr2 = _nagelkerke(ll2, ll0, n)
-        flag = p < 0.05
-        a = abs(dr2) if not np.isnan(dr2) else 0.0
-        if not flag or a < 0.035:
-            jg = "A"
-        elif a >= 0.07:
-            jg = "C"
-        else:
-            jg = "B"
-        rows.append(dict(stat=stat, df=df, p_value=p, delta_r2=dr2,
-                         flag=bool(flag), jg=jg))
-    return pd.DataFrame(rows)
+
+    def _run(score):
+        out = []
+        for j in range(n_items):
+            y = X[:, j]
+            d0 = np.column_stack([ones, score])
+            d1 = np.column_stack([ones, score, g])
+            d2 = np.column_stack([ones, score, g, score * g])
+            _, ll0 = _irls(d0, y)
+            _, ll1 = _irls(d1, y)
+            _, ll2 = _irls(d2, y)
+            if kind == "both":
+                stat, df = 2 * (ll2 - ll0), 2
+            elif kind == "uniform":
+                stat, df = 2 * (ll1 - ll0), 1
+            else:
+                stat, df = 2 * (ll2 - ll1), 1
+            stat = max(stat, 0.0)
+            pv = float(_chi2.sf(stat, df))
+            dr2 = _nagelkerke(ll2, ll0, n)
+            flag = pv < 0.05
+            a = abs(dr2) if not np.isnan(dr2) else 0.0
+            if not flag or a < 0.035:
+                jg = "A"
+            elif a >= 0.07:
+                jg = "C"
+            else:
+                jg = "B"
+            out.append(dict(stat=stat, df=df, p_value=pv, delta_r2=dr2,
+                            flag=bool(flag), jg=jg))
+        return pd.DataFrame(out)
+
+    if not purify:
+        return _run(total)
+
+    res = _run(total)
+    for it in range(1, max_iter + 1):
+        prev = res["flag"].to_numpy()
+        anchor = ~prev
+        if not anchor.any():
+            anchor = np.ones(n_items, dtype=bool)
+        res = _run(X[:, anchor].sum(axis=1))
+        if np.array_equal(res["flag"].to_numpy(), prev):
+            res.attrs["niter"] = it
+            return res
+    res.attrs["niter"] = max_iter
+    return res

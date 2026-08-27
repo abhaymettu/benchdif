@@ -52,3 +52,18 @@ def test_matches_statsmodels_glm():
         ll0 = sm.GLM(y, d0, family=sm.families.Binomial()).fit().llf
         ll2 = sm.GLM(y, d2, family=sm.families.Binomial()).fit().llf
         assert res.loc[j, "stat"] == pytest.approx(2 * (ll2 - ll0), abs=1e-4)
+
+
+def test_purification_converges_and_keeps_dif():
+    rng = np.random.default_rng(5)
+    n, k = 1600, 14
+    theta = rng.normal(size=n)
+    g = (np.arange(n) % 2).astype(float)
+    diff = rng.normal(scale=0.7, size=k)
+    X = (rng.random((n, k)) < 1 / (1 + np.exp(-(theta[:, None] - diff[None, :])))).astype(float)
+    foc = g == 1
+    for j in (2, 9):
+        X[foc, j] = (rng.random(foc.sum()) < 1 / (1 + np.exp(-(theta[foc] - diff[j] - 1.2)))).astype(float)
+    res = logistic(X, g, purify=True)
+    assert "niter" in res.attrs
+    assert res.loc[2, "flag"] and res.loc[9, "flag"]
