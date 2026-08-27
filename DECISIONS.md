@@ -48,3 +48,15 @@ details repos (996) are gated (HTTP 401 without a token + per-repo ToS), and no
 ungated multi-model per-question dataset surfaced. Built and tested `from_lm_eval`
 (reads lm-eval-harness --log_samples JSONL) so the pipeline is ready the moment
 real logs exist; documented the token/local-run paths in NEXT.md.
+
+## 2026-08-27 — IRT-LR DIF, and the anchor-contamination fix
+
+Added IRT likelihood-ratio DIF on the 2PL backend, with a freed focal ability
+distribution so group impact is not read as DIF. First cut used an all-items-shared
+baseline (all-other-anchor) and over-flagged badly: full power but 35% false-positive
+rate, because forcing the true DIF items equal biases the focal mean and distorts
+every item's test. Fix = two-stage anchor purification: stage 1 ranks items by a
+naive DIF screen, the lowest-DIF items become a clean anchor, stage 2 frees all other
+non-anchor items in both nested models so only the anchor identifies the metric.
+Result: full power, ~0% FPR with DIF present, size ~0.03 under pure impact. Lesson
+logged: IRT DIF is not valid without anchor handling; validate size, not just power.

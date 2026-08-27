@@ -14,9 +14,10 @@ This does, and it is validated to numerical agreement against R's `difR`.
 
 ## Status
 
-Early. Mantel-Haenszel and logistic-regression DIF implemented, with score
-purification, both validated to machine precision against statsmodels (CMH and
-GLM). Adapters + contamination demo work. See `NEXT.md` for the roadmap.
+Early. Three DIF methods: Mantel-Haenszel and logistic regression (validated to machine
+precision vs statsmodels CMH/GLM) and anchor-purified IRT-LR on a hand-written,
+recovery-validated 2PL backend (full power, controlled false positives, separates
+group impact from DIF). Adapters + contamination demo work. 19 tests. See `NEXT.md`.
 
 ## Install
 
@@ -41,6 +42,10 @@ res = mantel_haenszel(responses, group, purify=True)
 # logistic-regression DIF (uniform + non-uniform), matches R glm
 from benchdif import logistic
 lr = logistic(responses, group, kind="both")
+
+# IRT-based DIF (anchor-purified likelihood-ratio test, separates impact from DIF)
+from benchdif import irt_lr
+irt = irt_lr(responses, group)      # per item: stat, p_value, flag, da, db, is_anchor
 ```
 
 Returns a DataFrame per item: MH chi-square (`stat`), `p_value`, `alpha_mh`,

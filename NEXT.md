@@ -19,7 +19,14 @@ demo works. 10 tests green. Runtime deps: numpy/scipy/pandas only.
    or (b) run lm-eval-harness locally on a few small models with --log_samples and
    feed the dir to from_lm_eval. Then write examples/real_leaderboard.py. This is
    the "generational" proof and the top priority once a token exists.
-2. **IRT-based DIF** — 2PL BACKEND DONE. `benchdif.fit_2pl` is a numpy/scipy
+2. **IRT-based DIF** — DONE (IRT-LR). 2PL MML-EM backend + anchor-purified
+   IRT-LR test (`benchdif.irt_lr`), validated: full power, ~0% FPR with DIF
+   present, size ~0.03 under pure impact (validation/validate_irt_lr.py). The
+   naive all-shared baseline over-flagged (35% FPR from anchor contamination);
+   the two-stage anchor fix (rank-then-purify) solved it. Remaining IRT extras
+   (optional): Lord's Wald / Raju's area with explicit linking; iterative anchor
+   refinement. Original note kept below.
+   OLD: `benchdif.fit_2pl` is a numpy/scipy
    Bock-Aitkin MML-EM estimator, validated by parameter recovery (corr_a>0.99,
    corr_b>0.999, RMSE~0.05 across seeds; see validation/validate_twopl.py). STILL
    TODO: the DIF test on top. Cleanest validated route is IRT-LR (Thissen): a
