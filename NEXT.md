@@ -7,12 +7,18 @@ demo works. 10 tests green. Runtime deps: numpy/scipy/pandas only.
 
 ## Do next (in order)
 
-1. **Real-data adapters + demo (highest value).** Pull an actual per-item,
-   per-model correctness matrix and run DIF on it. Candidate sources:
-   Open LLM Leaderboard v2 `details_*` datasets on HF, lm-eval-harness sample
-   outputs, HELM instance-level results. Write `adapters.from_lm_eval(...)` and
-   `examples/real_leaderboard.py`. This is the "generational" proof — DIF on a
-   real benchmark, flagging real contamination/translation artifacts.
+1. **Real-data demo — PARTIALLY DONE, blocked on data access.**
+   `adapters.from_lm_eval(...)` is built and tested (reads lm-eval-harness
+   `--log_samples` JSONL into the long shape). BLOCKER: every compact per-item,
+   per-model source found is gated. Open LLM Leaderboard v1/v2 `*-details` repos
+   (996 of them) return HTTP 401 via the HF datasets-server without a token +
+   accepting each repo's terms; no ungated multi-model per-question dataset turned
+   up in search. To finish: (a) drop a HF token at ~/.cache/huggingface/token and
+   accept ToS, then pull ~40 models across 2 families (e.g. Qwen vs Llama) on one
+   task (arc_challenge/mmlu) via datasets-server /rows, pivot to a matrix, run DIF;
+   or (b) run lm-eval-harness locally on a few small models with --log_samples and
+   feed the dir to from_lm_eval. Then write examples/real_leaderboard.py. This is
+   the "generational" proof and the top priority once a token exists.
 2. **IRT-based DIF** (Lord's chi-square, Raju's area). Needs a validated 2PL
    backend — use `py-irt` (add as dep) or implement MML 2PL and validate against
    `mirt`/`py-irt`. Do NOT ship unvalidated IRT.
