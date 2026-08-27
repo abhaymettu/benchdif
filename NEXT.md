@@ -1,5 +1,20 @@
 # Next
 
+**STATUS 2026-08-27: core feature-complete and validated.** Four DIF methods
+(Mantel-Haenszel, logistic, IRT-LR, generalized MH for >2 groups), a measurement-
+invariance omnibus, a 2PL IRT backend, three adapters, a unified detect() API, a
+quickstart, and full packaging (MIT LICENSE, CHANGELOG, pyproject metadata). 32
+tests green; every statistical method validated (DIF vs statsmodels to machine
+precision; IRT pieces by parameter recovery and power/size simulation). 13 commits.
+
+The only substantive remaining work is BLOCKED on data access (the real-leaderboard
+demo needs a HF token). Everything else below is optional polish. The loop cadence
+has been slowed accordingly -- it now mainly watches for the token.
+
+---
+
+# Next
+
 State: v0.1. Two DIF methods (Mantel-Haenszel, logistic regression), both
 validated to machine precision against independent implementations (statsmodels
 CMH and GLM). Adapters reshape leaderboard results into DIF matrices. Contamination
