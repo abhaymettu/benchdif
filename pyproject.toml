@@ -7,11 +7,27 @@ authors = [
     { name = "Abhay Mettu", email = "113219143+abhaymettu@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "numpy>=2.5.2",
     "pandas>=3.0.5",
     "scipy>=1.18.1",
 ]
+keywords = ["psychometrics", "differential-item-functioning", "DIF", "IRT",
+    "measurement-invariance", "LLM-evaluation", "benchmark", "fairness"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+[project.urls]
+Homepage = "https://github.com/abhaymettu/benchdif"
+Repository = "https://github.com/abhaymettu/benchdif"
+Issues = "https://github.com/abhaymettu/benchdif/issues"
 
 [build-system]
 requires = ["uv_build>=0.12.1,<0.13.0"]

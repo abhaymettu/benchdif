@@ -46,6 +46,11 @@ lr = logistic(responses, group, kind="both")
 # IRT-based DIF (anchor-purified likelihood-ratio test, separates impact from DIF)
 from benchdif import irt_lr
 irt = irt_lr(responses, group)      # per item: stat, p_value, flag, da, db, is_anchor
+
+# or the unified entry point (normalized summary across methods)
+from benchdif import detect
+summary = detect(responses, group, method="irt")   # 'mh' | 'logistic' | 'irt'
+summary[summary.flag]                                # items with DIF
 ```
 
 Returns a DataFrame per item: MH chi-square (`stat`), `p_value`, `alpha_mh`,
