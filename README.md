@@ -14,8 +14,9 @@ This does, and it is validated to numerical agreement against R's `difR`.
 
 ## Status
 
-Early. Mantel-Haenszel DIF implemented and self-tested; difR cross-validation and
-logistic-regression DIF in progress. See `DECISIONS.md` for the build order.
+Early. Mantel-Haenszel and logistic-regression DIF implemented, with score
+purification, both validated to machine precision against statsmodels (CMH and
+GLM). Adapters + contamination demo work. See `NEXT.md` for the roadmap.
 
 ## Install
 
@@ -33,6 +34,13 @@ from benchdif import mantel_haenszel
 res = mantel_haenszel(responses, group)
 print(res[res.flag])          # items with significant DIF
 res.loc[3, ["stat", "mh_ddif", "ets"]]
+
+# score purification (drop DIF items from the matching score, iteratively)
+res = mantel_haenszel(responses, group, purify=True)
+
+# logistic-regression DIF (uniform + non-uniform), matches R glm
+from benchdif import logistic
+lr = logistic(responses, group, kind="both")
 ```
 
 Returns a DataFrame per item: MH chi-square (`stat`), `p_value`, `alpha_mh`,

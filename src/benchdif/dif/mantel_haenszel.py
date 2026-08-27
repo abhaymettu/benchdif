@@ -33,7 +33,8 @@ from scipy.stats import chi2 as _chi2
 CHI2_CRIT = _chi2.ppf(0.95, 1)  # 3.8414588...
 
 
-def mantel_haenszel(responses, group) -> pd.DataFrame:
+def mantel_haenszel(responses, group, match=None, purify=False,
+                    max_iter=10) -> pd.DataFrame:
     """Run MH DIF on every item.
 
     Parameters
@@ -42,6 +43,15 @@ def mantel_haenszel(responses, group) -> pd.DataFrame:
         Dichotomous 0/1 responses. No missing values.
     group : array-like, shape (n_persons,)
         0 = reference, 1 = focal.
+    match : array-like, shape (n_persons,), optional
+        External matching score. Default None = total score over all items
+        (difR match='score'). Ignored when purify=True.
+    purify : bool
+        If True, iteratively recompute the matching score from anchor (non-
+        flagged) items only and re-test until the flagged set is stable
+        (difR purify=TRUE). Adds a 'niter' attribute to the result.
+    max_iter : int
+        Cap on purification iterations.
 
     Returns
     -------
@@ -65,47 +75,65 @@ def mantel_haenszel(responses, group) -> pd.DataFrame:
     if not uniq <= {0, 1}:
         raise ValueError(f"group must be coded 0/1, got {sorted(uniq)}")
 
-    total = X.sum(axis=1)              # matching score = sum over all items
     is_ref = g == 0
     is_foc = g == 1
     n_items = X.shape[1]
-    rows = []
 
-    for j in range(n_items):
-        item = X[:, j]
-        num_alpha = den_alpha = 0.0
-        sum_A = sum_E = sum_V = 0.0
-        for k in np.unique(total):
-            at = total == k
-            A = float(np.sum(item[at & is_ref] == 1))
-            B = float(np.sum(item[at & is_ref] == 0))
-            C = float(np.sum(item[at & is_foc] == 1))
-            D = float(np.sum(item[at & is_foc] == 0))
-            T = A + B + C + D
-            if T == 0:
-                continue
-            num_alpha += A * D / T
-            den_alpha += B * C / T
-            nR, nF = A + B, C + D
-            m1, m0 = A + C, B + D
-            sum_A += A
-            sum_E += nR * m1 / T
-            if T > 1:
-                sum_V += (nR * nF * m1 * m0) / (T * T * (T - 1))
+    def _run(score):
+        out = []
+        for j in range(n_items):
+            item = X[:, j]
+            num_alpha = den_alpha = 0.0
+            sum_A = sum_E = sum_V = 0.0
+            for k in np.unique(score):
+                at = score == k
+                A = float(np.sum(item[at & is_ref] == 1))
+                B = float(np.sum(item[at & is_ref] == 0))
+                C = float(np.sum(item[at & is_foc] == 1))
+                D = float(np.sum(item[at & is_foc] == 0))
+                T = A + B + C + D
+                if T == 0:
+                    continue
+                num_alpha += A * D / T
+                den_alpha += B * C / T
+                nR, nF = A + B, C + D
+                m1, m0 = A + C, B + D
+                sum_A += A
+                sum_E += nR * m1 / T
+                if T > 1:
+                    sum_V += (nR * nF * m1 * m0) / (T * T * (T - 1))
+            alpha = num_alpha / den_alpha if den_alpha > 0 else np.inf
+            ddif = -2.35 * np.log(alpha) if 0 < alpha < np.inf else np.nan
+            stat = (abs(sum_A - sum_E) - 0.5) ** 2 / sum_V if sum_V > 0 else 0.0
+            p = float(_chi2.sf(stat, 1))
+            flag = stat > CHI2_CRIT
+            a = abs(ddif)
+            if not flag or np.isnan(a) or a < 1.0:
+                ets = "A"
+            elif a >= 1.5:
+                ets = "C"
+            else:
+                ets = "B"
+            out.append(dict(stat=stat, p_value=p, alpha_mh=alpha,
+                            mh_ddif=ddif, flag=bool(flag), ets=ets))
+        return pd.DataFrame(out)
 
-        alpha = num_alpha / den_alpha if den_alpha > 0 else np.inf
-        ddif = -2.35 * np.log(alpha) if 0 < alpha < np.inf else np.nan
-        stat = (abs(sum_A - sum_E) - 0.5) ** 2 / sum_V if sum_V > 0 else 0.0
-        p = float(_chi2.sf(stat, 1))
-        flag = stat > CHI2_CRIT
-        a = abs(ddif)
-        if not flag or np.isnan(a) or a < 1.0:
-            ets = "A"
-        elif a >= 1.5:
-            ets = "C"
-        else:
-            ets = "B"
-        rows.append(dict(stat=stat, p_value=p, alpha_mh=alpha,
-                         mh_ddif=ddif, flag=bool(flag), ets=ets))
+    if not purify:
+        score = X.sum(axis=1) if match is None else np.asarray(match).ravel()
+        return _run(score)
 
-    return pd.DataFrame(rows)
+    # purification: matching score = sum over currently non-flagged items
+    flagged = np.zeros(n_items, dtype=bool)
+    res = _run(X.sum(axis=1))
+    for it in range(1, max_iter + 1):
+        new_flagged = res["flag"].to_numpy()
+        anchor = ~new_flagged
+        if not anchor.any():          # everything flagged: fall back to total
+            anchor = np.ones(n_items, dtype=bool)
+        score = X[:, anchor].sum(axis=1)
+        res = _run(score)
+        if np.array_equal(res["flag"].to_numpy(), new_flagged):
+            res.attrs["niter"] = it
+            return res
+    res.attrs["niter"] = max_iter
+    return res
