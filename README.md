@@ -10,7 +10,9 @@ tests to LLM/AI benchmarks.
 
 Item-difficulty estimators for benchmarks already exist (`py-irt`, `IRTorch`,
 `PSN-IRT`); fairness scanners exist (`LangFair`). None test invariance or DIF.
-This does, and it is validated to numerical agreement against R's `difR`.
+This does, and every statistic is validated against an independent implementation:
+the closed-form tests to machine precision against statsmodels, the IRT pieces by
+parameter recovery and power/size simulation.
 
 ## Status
 
@@ -85,8 +87,11 @@ invisible to accuracy caught by DIF. Run either with `uv run python examples/<fi
 
 ## Validation
 
-Every method is checked against `difR` on shared datasets; reference values are
-frozen as fixtures in `tests/`, so `uv run pytest` needs no R. Regenerate the
+Every method is checked against an independent implementation. Mantel-Haenszel and
+logistic DIF match statsmodels' CMH and GLM to machine precision; the 2PL backend is
+validated by parameter recovery; IRT-LR and the invariance omnibus by power and size
+simulation. R's `difR` would have been the ideal oracle but CRAN was unreachable in
+this environment, so statsmodels is the substitute. Regenerate the
 oracle with the scripts in `validation/`.
 
 For the real-data analysis, `python data/fetch_leaderboard.py` downloads the
