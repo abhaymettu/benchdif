@@ -14,10 +14,11 @@ This does, and it is validated to numerical agreement against R's `difR`.
 
 ## Status
 
-Early. Three DIF methods: Mantel-Haenszel and logistic regression (validated to machine
-precision vs statsmodels CMH/GLM) and anchor-purified IRT-LR on a hand-written,
-recovery-validated 2PL backend (full power, controlled false positives, separates
-group impact from DIF). Adapters + contamination demo work. 19 tests. See `NEXT.md`.
+Early. Three DIF methods (Mantel-Haenszel, logistic regression, anchor-purified IRT-LR)
+plus a measurement-invariance omnibus (configural -> metric -> scalar), all
+validated: the DIF tests to machine precision vs statsmodels, the IRT pieces by
+parameter recovery and by power/size simulation that separates group impact from
+non-invariance. Adapters + contamination demo work. 29 tests. See `NEXT.md`.
 
 ## Install
 
@@ -51,6 +52,10 @@ irt = irt_lr(responses, group)      # per item: stat, p_value, flag, da, db, is_
 from benchdif import detect
 summary = detect(responses, group, method="irt")   # 'mh' | 'logistic' | 'irt'
 summary[summary.flag]                                # items with DIF
+
+# measurement-invariance omnibus (scale-level: configural -> metric -> scalar)
+from benchdif import invariance
+inv = invariance(responses, group)   # rows metric/scalar: stat, df, p_value, holds
 ```
 
 Returns a DataFrame per item: MH chi-square (`stat`), `p_value`, `alpha_mh`,

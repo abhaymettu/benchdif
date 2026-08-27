@@ -39,9 +39,11 @@ demo works. 10 tests green. Runtime deps: numpy/scipy/pandas only.
 3. **Logistic purification** (mirror the MH purify loop).
 4. **Freeze fixtures**: store statsmodels reference values as CSV in tests/ so the
    cross-check tests need no statsmodels at runtime (currently importorskip).
-5. **Measurement-invariance omnibus** (the broader framing): configural/metric/
-   scalar invariance via multi-group models — the CFA/SEM angle beyond item-level
-   DIF. Larger; scope its own design.
+5. **Measurement-invariance omnibus** — DONE. `benchdif.invariance` runs the
+   configural -> metric -> scalar LR ladder on the multi-group 2PL, validated:
+   invariant data never rejects despite impact (0/8), intercept-DIF localizes to
+   scalar (0/8 metric, 8/8 scalar), loading-DIF triggers metric (8/8). See
+   validation/validate_invariance.py.
 6. **>2 groups**: generalized MH and IRT-based multi-group DIF.
 7. **Polytomous items** (ordinal/graded responses).
 8. Package: docs, `report()` convenience API, PyPI publish, CI.

@@ -109,3 +109,34 @@ def fit_2pl(responses, n_nodes=41, max_iter=500, tol=1e-5) -> TwoPLFit:
     b = -d / a
     return TwoPLFit(a=a, b=b, d=d, loglik=ll, n_iter=n_iter,
                     nodes=theta, weights=wq)
+
+
+def _mstep_equal_a(theta, n0, c0, n1, c1, a, d0, d1, iters=50, tol=1e-9):
+    """Joint Newton for an item with a slope SHARED across groups but group-
+    specific intercepts: logit_ref = a*theta + d0, logit_foc = a*theta + d1.
+
+    Maximizes the pooled grouped-binomial log-likelihood over (a, d0, d1).
+    Returns (a, d0, d1).
+    """
+    for _ in range(iters):
+        p0 = 1 / (1 + np.exp(-np.clip(a * theta + d0, -30, 30)))
+        p1 = 1 / (1 + np.exp(-np.clip(a * theta + d1, -30, 30)))
+        w0 = n0 * p0 * (1 - p0)
+        w1 = n1 * p1 * (1 - p1)
+        r0 = c0 - n0 * p0
+        r1 = c1 - n1 * p1
+        grad = np.array([np.sum(theta * r0) + np.sum(theta * r1),
+                         np.sum(r0), np.sum(r1)])
+        H = np.array([
+            [np.sum(theta * theta * (w0 + w1)), np.sum(theta * w0), np.sum(theta * w1)],
+            [np.sum(theta * w0),                np.sum(w0),         0.0],
+            [np.sum(theta * w1),                0.0,                np.sum(w1)],
+        ])
+        try:
+            step = np.linalg.solve(H, grad)
+        except np.linalg.LinAlgError:
+            break
+        a += step[0]; d0 += step[1]; d1 += step[2]
+        if np.max(np.abs(step)) < tol:
+            break
+    return a, d0, d1

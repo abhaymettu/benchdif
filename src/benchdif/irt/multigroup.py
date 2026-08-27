@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from benchdif.irt.twopl import _mstep_item
+from benchdif.irt.twopl import _mstep_item, _mstep_equal_a
 
 
 @dataclass
@@ -55,20 +55,34 @@ def _post(X_g, P, logw):
     return e / denom, ll
 
 
-def fit_multigroup_2pl(responses, group, free_mask, n_nodes=41,
-                       max_iter=500, tol=1e-5) -> MultiGroupFit:
+def fit_multigroup_2pl(responses, group, free_mask=None, constraints=None,
+                       fix_focal_mean=False, fix_focal_var=False,
+                       n_nodes=41, max_iter=500, tol=1e-5) -> MultiGroupFit:
     """Concurrent two-group 2PL EM.
 
     responses : (n x J) 0/1. group : (n,) 0=reference, 1=focal.
-    free_mask : (J,) bool; True = item's params are group-specific, False = shared.
+    free_mask : (J,) bool; True = item free across groups, False = shared (both
+        a and d). Back-compatible shortcut for `constraints`.
+    constraints : (J,) of {'free','equal_a','equal_both'}; overrides free_mask.
+        'equal_a' shares the slope but frees intercepts (the metric level).
+    fix_focal_mean, fix_focal_var : hold the focal ability mean at 0 / variance at 1
+        instead of estimating them (used to identify the configural/metric levels).
+
+    Reference ability is fixed N(0,1); the focal ability N(mu,sigma) is estimated
+    unless fixed.
     """
     X = np.asarray(responses, dtype=float)
     g = np.asarray(group).ravel()
-    free = np.asarray(free_mask, dtype=bool)
-    X0, X1 = X[g == 0], X[g == 1]
     J = X.shape[1]
+    if constraints is None:
+        if free_mask is None:
+            free_mask = np.zeros(J, bool)
+        free = np.asarray(free_mask, dtype=bool)
+        constraints = np.where(free, "free", "equal_both")
+    constraints = np.asarray(constraints, dtype=object)
+    X0, X1 = X[g == 0], X[g == 1]
     theta = _grid(n_nodes)
-    w0 = _normal_w(theta, 0.0, 1.0)          # reference prior fixed N(0,1)
+    w0 = _normal_w(theta, 0.0, 1.0)
     logw0 = np.log(w0)
 
     a_r = np.ones(J); d_r = np.zeros(J)
@@ -79,29 +93,33 @@ def fit_multigroup_2pl(responses, group, free_mask, n_nodes=41,
     for n_iter in range(1, max_iter + 1):
         w1 = _normal_w(theta, mu, sigma)
         logw1 = np.log(w1)
-        # item probabilities at nodes for each group
         Pr = 1 / (1 + np.exp(-np.clip(theta[:, None] * a_r + d_r, -30, 30)))
         Pf = 1 / (1 + np.exp(-np.clip(theta[:, None] * a_f + d_f, -30, 30)))
         r0, ll0 = _post(X0, Pr, logw0)
         r1, ll1 = _post(X1, Pf, logw1)
         ll = ll0 + ll1
-        # expected counts at nodes
         n0 = r0.sum(axis=0); n1 = r1.sum(axis=0)
-        c0 = r0.T @ X0; c1 = r1.T @ X1        # (Q x J) expected correct
+        c0 = r0.T @ X0; c1 = r1.T @ X1
         for j in range(J):
-            if free[j]:
+            mode = constraints[j]
+            if mode == "free":
                 a_r[j], d_r[j] = _mstep_item(theta, n0, c0[:, j], a_r[j], d_r[j])
                 a_f[j], d_f[j] = _mstep_item(theta, n1, c1[:, j], a_f[j], d_f[j])
-            else:  # shared: pool both groups' expected counts at shared nodes
+            elif mode == "equal_a":
+                a, d0, d1 = _mstep_equal_a(theta, n0, c0[:, j], n1, c1[:, j],
+                                           a_r[j], d_r[j], d_f[j])
+                a_r[j] = a_f[j] = a
+                d_r[j] = d0; d_f[j] = d1
+            else:  # equal_both
                 a, d = _mstep_item(theta, n0 + n1, c0[:, j] + c1[:, j],
                                    a_r[j], d_r[j])
                 a_r[j] = a_f[j] = a
                 d_r[j] = d_f[j] = d
-        # update focal ability distribution from its posterior
         N1 = n1.sum()
-        mu = float((n1 * theta).sum() / N1)
-        sigma = float(np.sqrt((n1 * (theta - mu) ** 2).sum() / N1))
-        sigma = max(sigma, 0.2)
+        if not fix_focal_mean:
+            mu = float((n1 * theta).sum() / N1)
+        if not fix_focal_var:
+            sigma = max(float(np.sqrt((n1 * (theta - mu) ** 2).sum() / N1)), 0.2)
         if abs(ll - ll_old) < tol:
             break
         ll_old = ll
