@@ -1,5 +1,26 @@
 # Next
 
+**STATUS 2026-10-12 (branch harness-dif): harness/effort DIF built, validated,
+blocked on data access.** `paired_dif` + `paired_dtf` + measurement-db adapters +
+`examples/harness_dif.py`, validated by oracle and simulation. See
+FINDINGS-harness.md for the design-size power analysis and what is pending.
+
+1. **Run on the real tables** once aims-foundations/measurement-db access exists
+   (gated; accepting the gate is held for Abhay). Download the binary-item candidates
+   (matharena, matharena_platform, swebench_live, mtbbench, weavebench, engdesign,
+   helm_bbq; `formatted_tables/{subjects,responses}.parquet` only), then
+   `uv run python examples/harness_dif.py ROOT`. Check first that
+   `normalized_name` merges a model's harness/effort variants. If it does not,
+   pass a model key built from display_name.
+2. 2PL null needs >= 30 subjects complete on the contrast's items; with sparse
+   coverage, calibrate slopes on a complete sub-block instead.
+3. Anchor bias under one-sided DIF (DECISIONS.md 2026-10-12): an outside anchor
+   (items known to be harness-neutral) would remove it.
+
+---
+
+# Next
+
 **STATUS 2026-08-27: core feature-complete and validated.** Four DIF methods
 (Mantel-Haenszel, logistic, IRT-LR, generalized MH for >2 groups), a measurement-
 invariance omnibus, a 2PL IRT backend, three adapters, a unified detect() API, a

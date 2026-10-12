@@ -38,6 +38,12 @@ held-out models, against true gaps of 0.0005-0.19. Subset selection methods
 that does not hold. See **[FINDINGS.md](FINDINGS.md)**, including what it does not
 show (this is differential functioning, not proven contamination).
 
+**In progress (branch harness-dif).** Does an agent harness or reasoning-effort
+setting change *which* items a model solves, or only how many? `paired_dif` tests one
+model under two conditions, conditional on each item. It is validated and
+power-analysed at the design sizes of the AIMS measurement-db. The real-data run waits
+on gated data access. See **[FINDINGS-harness.md](FINDINGS-harness.md)**.
+
 ## Install
 
 ```bash

@@ -60,3 +60,49 @@ naive DIF screen, the lowest-DIF items become a clean anchor, stage 2 frees all 
 non-anchor items in both nested models so only the anchor identifies the metric.
 Result: full power, ~0% FPR with DIF present, size ~0.03 under pure impact. Lesson
 logged: IRT DIF is not valid without anchor handling; validate size, not just power.
+
+## 2026-10-12: Harness and effort DIF on measurement-db
+
+**Question.** When one model runs under a different agent harness or reasoning
+effort, is the change pure impact (an ability shift) or DIF (it changes which items
+the model solves)? Data: aims-foundations/measurement-db, whose subjects table
+records harness, reasoning_effort and harness_version per subject.
+
+**Paired design, not person-level DIF.** In every candidate benchmark, 1-9 models
+share a contrast. Person-level DIF (persons = models, group = harness) needs far
+more. The unit with power is one model under two conditions on shared items, with
+repeated trials. `paired_dif` conditions on each (model, item) stratum's total
+successes, so the model-specific item quirks that dominate cross-model variance
+(FINDINGS.md section 1) cancel exactly. What remains is a common log odds shift
+(impact) plus item deviations (DIF). Noncentral hypergeometric likelihood, exact
+per-item p-values, bootstrap omnibus. Oracle: statsmodels ConditionalLogit (agrees
+to 2e-16 once statsmodels is run with Newton; its default BFGS stops 5e-4 short).
+
+**Two nulls.** If items differ in discrimination, a pure ability shift moves steep
+items more, and the Rasch null reads that as DIF (8/20 rejections with log-slope
+sd 0.4 and a 1.5-logit shift; 1/20 under the 2PL null with the true slopes). Both
+are reported; the 2PL null needs >= 30 subjects answering every item to calibrate
+slopes.
+
+**Controls.** Lineage-preserving permutation = flip condition labels within
+model, which keeps every model's pairing intact. Negative control = odd vs even
+trials of the same subject and condition (5/100 rejections at .05 in simulation).
+
+**Test-level consequence.** Fitted impact makes item scores sum to zero, so
+"does DIF cancel in the score" needs an anchor-defined impact, the same
+identification irt_lr uses. Holding each item's total fixed, the score gap
+splits exactly into an impact part and a DIF part. The theory check predicts each
+model's DIF part from item DIF fitted on held-out data (other models, or the other
+half of the trials) and compares it with the observed part.
+
+**Known bias, accepted.** Impact and one-sided DIF cannot be fully separated
+without an outside anchor. The purified anchor (lowest-|z| half, iterated to a
+stable set) settles slightly above the true impact, so both DIF parts understate
+one-sided DIF's score effect: 0.88 observed and 0.71 predicted, relative to the
+truth (validation/validate_dtf.py). Ranking anchors by effect size instead of |z|
+barely moved this (anchor impact 0.91 vs 0.93, true 0.84 after small-sample bias).
+
+**Data access.** The dataset is gated. Accepting the gate means filling a form as
+the account owner, which is held for Abhay. No gated file has been read. The
+eligible-cell count, power and pipeline come from the public catalog (GitHub
+revision a06b94d) and synthetic tables in the same schema.

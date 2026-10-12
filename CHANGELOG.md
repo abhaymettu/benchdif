@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased (branch harness-dif)
+
+- **Paired-condition DIF** (`paired_dif`): one model under two conditions
+  (harness, reasoning effort) on shared items with repeated trials. Conditions on
+  each (model, item) total so model-specific item effects cancel; impact is the
+  conditional-ML log odds shift, DIF the item-level deviation, with exact per-item
+  p-values, a bootstrap omnibus and optional 2PL slopes. Validated against
+  statsmodels ConditionalLogit and by size/power simulation.
+- **Held-out DTF** (`paired_dtf`): splits each model's score gap into impact and
+  DIF parts and predicts the DIF part from item DIF fitted on other models or
+  trials (Raju's DTF in conditional form).
+- **measurement-db adapters**: `condition_pairs`, `paired_counts`,
+  `eligible_cells`, `runs_matrix`.
+- `examples/harness_dif.py` runs the full analysis on measurement-db tables;
+  `examples/synthetic_mdb.py` writes schema-identical synthetic tables.
+
 ## 0.1.0 (unreleased)
 
 First working version.
