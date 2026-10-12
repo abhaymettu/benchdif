@@ -2,7 +2,7 @@
 
 Same table schema as the real parquet files (subjects / responses / items), so the
 condition-pair pipeline can be built and tested before gated access arrives.
-Run `python synthetic_mdb.py OUTDIR` to write OUTDIR/synthbench/formatted_tables/.
+Run `python synthetic_mdb.py OUTDIR` to write OUTDIR/{synthbench,synthbench_onesided}/formatted_tables/.
 """
 import sys
 from pathlib import Path
@@ -11,14 +11,19 @@ import numpy as np
 import pandas as pd
 
 
-def make_synthetic(seed=0, n_items=120, trials=4):
-    """Return dict(subjects, responses, items, planted_dif_items)."""
+def make_synthetic(seed=0, n_items=120, trials=4, dif_size=1.0, one_sided=False,
+                   name="synthbench"):
+    """Return dict(subjects, responses, items, planted_dif_items).
+
+    Planted DIF (agentB only) is +/-dif_size, or +dif_size on every planted item
+    when one_sided, so it does not cancel in the score.
+    """
     rng = np.random.default_rng(seed)
     items_ids = [f"item{i:03d}" for i in range(n_items)]
     b = rng.normal(0, 1.5, n_items)
     planted = rng.choice(n_items, size=n_items // 10, replace=False)
     dif = np.zeros(n_items)
-    dif[planted] = rng.choice([-1.0, 1.0], size=len(planted))
+    dif[planted] = dif_size * (1.0 if one_sided else rng.choice([-1.0, 1.0], size=len(planted)))
     frac = set(range(n_items - 5, n_items))  # fractional-graded items
 
     conds = []  # (model, effort, harness)
@@ -47,9 +52,9 @@ def make_synthetic(seed=0, n_items=120, trials=4):
             y[rng.random(n_items) < 0.02] = np.nan
             resp.append(pd.DataFrame(dict(
                 subject_id=sid, item_id=items_ids, response_id=f"{sid}-{t}-" + pd.Series(items_ids),
-                benchmark_id="synthbench", trial=t, test_condition=None,
+                benchmark_id=name, trial=t, test_condition=None,
                 interactors=None, response=y)))
-    items = pd.DataFrame(dict(item_id=items_ids, benchmark_id="synthbench",
+    items = pd.DataFrame(dict(item_id=items_ids, benchmark_id=name,
                               raw_item_id=items_ids, content=None))
     return dict(subjects=pd.DataFrame(subj),
                 responses=pd.concat(resp, ignore_index=True), items=items,
@@ -57,8 +62,10 @@ def make_synthetic(seed=0, n_items=120, trials=4):
 
 
 if __name__ == "__main__":
-    out = Path(sys.argv[1]) / "synthbench" / "formatted_tables"
-    out.mkdir(parents=True, exist_ok=True)
-    d = make_synthetic()
-    for name in ("subjects", "responses", "items"):
-        d[name].to_parquet(out / f"{name}.parquet", index=False)
+    for bench, kw in (("synthbench", {}),
+                      ("synthbench_onesided", dict(seed=1, dif_size=1.5, one_sided=True))):
+        out = Path(sys.argv[1]) / bench / "formatted_tables"
+        out.mkdir(parents=True, exist_ok=True)
+        d = make_synthetic(name=bench, **kw)
+        for table in ("subjects", "responses", "items"):
+            d[table].to_parquet(out / f"{table}.parquet", index=False)

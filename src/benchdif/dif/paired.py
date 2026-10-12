@@ -99,7 +99,7 @@ def paired_dif(model, item, k0, n0, k1, n1, slope=None, n_boot=500,
     k0, n0, k1, n1 : (S,) successes / trials under condition 0 and 1.
     slope : optional dict {item label: a_i}, or an array aligned with
         np.unique(item) (default 1 for every item: the Rasch null).
-    n_boot : bootstrap replicates for the omnibus p-value.
+    n_boot : bootstrap replicates for the omnibus p-value (0 skips it).
 
     Strata with no information (all successes or all failures across both
     conditions) are dropped. Items are flagged at BH q < alpha; the ETS class
@@ -155,7 +155,7 @@ def paired_dif(model, item, k0, n0, k1, n1, slope=None, n_boot=500,
         ub, vb, _ = _scores(kb, x, lb, a, Db, m, it, len(its))
         okb = vb > 1e-12
         Tb[b] = np.sum(ub[okb] ** 2 / vb[okb])
-    null_mean = float(Tb.mean())
+    null_mean = float(Tb.mean()) if n_boot else np.nan
 
     impact = pd.DataFrame({"model": mods, "delta_hat": D,
                            "se": 1 / np.sqrt(np.where(info > 0, info, np.nan)),
@@ -164,5 +164,102 @@ def paired_dif(model, item, k0, n0, k1, n1, slope=None, n_boot=500,
                           "p_value": pv, "q_value": q, "flag": flag,
                           "d_dif": d, "ets": ets})
     return PairedDIF(impact=impact, items=items, stat=T,
-                     p_value=float((1 + np.sum(Tb >= T)) / (n_boot + 1)),
+                     p_value=float((1 + np.sum(Tb >= T)) / (n_boot + 1)) if n_boot else np.nan,
                      null_mean=null_mean, var_ratio=T / null_mean)
+
+
+def _cols(c):
+    return (c[k].to_numpy(dtype=np.int64) for k in ("k0", "n0", "k1", "n1"))
+
+
+def _informative(c):
+    s = c.k0 + c.k1
+    return c[(s > 0) & (s < c.n0 + c.n1)]
+
+
+def _moments(c, psi):
+    x, lb = _lognchg_base(*_cols(c))
+    p = _pmf(x, lb, np.asarray(psi, dtype=float))
+    e = (p * x).sum(1)
+    return e, (p * x * x).sum(1) - e * e
+
+
+def _anchor_impact(c, anchor):
+    sub = _informative(c[c.item_id.isin(anchor)])
+    cells, m = np.unique(sub.cell, return_inverse=True)
+    x, lb = _lognchg_base(*_cols(sub))
+    D, _ = _fit_delta(sub.k1.to_numpy(), x, lb, np.ones(len(sub)), m, len(cells))
+    return dict(zip(cells, D))
+
+
+def _item_scores(c, impact, delta=None):
+    """Per-item score u and information v at psi = impact[cell] + delta[item]."""
+    inf = _informative(c)
+    psi = inf.cell.map(impact).to_numpy()
+    if delta is not None:
+        psi = psi + inf.item_id.map(delta).fillna(0.0).to_numpy()
+    e, v = _moments(inf, psi)
+    return pd.DataFrame({"item_id": inf.item_id.to_numpy(), "u": inf.k1.to_numpy() - e,
+                         "v": v}).groupby("item_id").sum()
+
+
+def _purified_dif(c, frac=0.5, max_iter=50, clip=5.0):
+    """Anchor items, and each item's conditional-ML DIF relative to them.
+
+    Anchor = the lowest-|z| half of items at the anchor's own impact, found by
+    alternating (fit impact on the anchor, re-rank by |z|) until stable, so
+    one-sided DIF cannot pull the impact toward itself the way a single
+    all-items fit does. delta_i is then the conditional MLE (Newton, clipped at
+    +/-clip logits: an item whose condition-1 trials all succeed has no finite
+    MLE).
+    """
+    anchor = set(c.item_id)
+    for _ in range(max_iter):
+        g = _item_scores(c, _anchor_impact(c, anchor))
+        z = (g.u / np.sqrt(g.v.where(g.v > 1e-9))).abs().fillna(np.inf)
+        new = set(z.sort_values(kind="stable").index[: max(int(frac * len(z)), 1)])
+        if new == anchor:
+            break
+        anchor = new
+    impact = _anchor_impact(c, anchor)
+    delta = pd.Series(0.0, index=g.index)
+    for _ in range(50):
+        g = _item_scores(c, impact, delta)
+        step = (g.u / g.v.where(g.v > 1e-9)).fillna(0.0)
+        delta = (delta + step).clip(-clip, clip)
+        if step.abs().max() < 1e-8:
+            break
+    return anchor, delta
+
+
+def paired_dtf(train: pd.DataFrame, test: pd.DataFrame) -> pd.DataFrame:
+    """Differential test functioning on held-out data (Raju's DTF, conditional form).
+
+    train, test : counts [cell, item_id, k0, n0, k1, n1] (adapters.paired_counts)
+        from disjoint data: other models, or other trials of the same model.
+
+    On `train`: purify an anchor and fit each item's DIF delta_i relative to the
+    anchor impact. On `test`: refit each cell's impact on the same anchor items.
+    Per item the score gap k1/n1 - k0/n0 equals k1 (1/n1 + 1/n0) - s/n0 with s the
+    item's total successes, so holding s fixed the gap splits exactly into an
+    impact part and a DIF part. Per test cell, as mean accuracy over its items:
+
+        gap    : observed score gap, condition 1 minus condition 0
+        G_obs  : DIF part, sum of (k1 - E[k1 | s, impact]) (1/n1 + 1/n0) / n_items
+        G_pred : the same with k1 replaced by E[k1 | s, impact + delta_i]: the
+                 item-level DIF summed at the cell's own matched level, from
+                 parameters that never saw the test data
+
+    Balanced DIF gives G near 0 (it cancels in the score); one-sided DIF does not.
+    """
+    anchor, delta = _purified_dif(train)
+    inf = _informative(test)
+    D = inf.cell.map(_anchor_impact(test, anchor)).to_numpy()
+    base = _moments(inf, D)[0]
+    shifted = _moments(inf, D + inf.item_id.map(delta).fillna(0.0).to_numpy())[0]
+    w = 1 / inf.n1.to_numpy() + 1 / inf.n0.to_numpy()
+    out = pd.DataFrame({"cell": inf.cell.to_numpy(), "G_obs": (inf.k1.to_numpy() - base) * w,
+                        "G_pred": (shifted - base) * w}).groupby("cell").sum()
+    n_items = test.groupby("cell").size()
+    gap = (test.k1 / test.n1 - test.k0 / test.n0).groupby(test.cell).mean()
+    return out.reindex(n_items.index, fill_value=0.0).div(n_items, axis=0).assign(gap=gap)

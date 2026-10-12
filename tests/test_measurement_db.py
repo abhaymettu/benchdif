@@ -35,7 +35,7 @@ def test_condition_pairs_null_is_default_and_input_unchanged():
     before = s.copy()
     p = condition_pairs(s, "reasoning_effort")
     row = p[p.model == "m1"].iloc[0]
-    assert (row.cond_0, row.cond_1) == ("default", "high")
+    assert (row.cond_0, row.cond_1) == ("high", "default")   # known levels first
     pd.testing.assert_frame_equal(s, before)
     assert "f" not in set(p.subject_0) | set(p.subject_1)   # null model dropped
     with pytest.raises(ValueError):
@@ -77,7 +77,8 @@ def test_eligible_cells_on_synthetic():
     assert set(h.model) == {"m0", "m1", "m2"}
     assert (e.n_items <= 115).all() and (e.n_items > 90).all()
     assert (e.trials_0 <= 4).all()
-    assert (e.mean_0 > e.mean_1).all()    # cond_0 = "high" solves more
+    assert (e.cond_0 == "low").all() and (e.cond_1 == "high").all()   # effort order
+    assert (e.mean_0 < e.mean_1).all()    # high effort solves more
     assert len(d["planted_dif_items"]) == 12
 
 

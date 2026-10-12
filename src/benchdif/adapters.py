@@ -137,6 +137,7 @@ def from_lm_eval(sample_files: dict, metric: str = "acc", threshold: float = 0.5
 
 
 _FACTORS = ("harness", "reasoning_effort", "harness_version")
+_EFFORT = {"minimal": 0, "low": 1, "medium": 2, "high": 3, "xhigh": 4, "max": 5}
 
 
 def condition_pairs(subjects: pd.DataFrame, factor: str,
@@ -144,8 +145,9 @@ def condition_pairs(subjects: pd.DataFrame, factor: str,
     """Pairs of subjects (same model) differing in `factor` and equal in the others.
 
     `factor` is one of harness / reasoning_effort / harness_version. Null factor
-    values count as the string "default". Each pair is ordered so cond_0 < cond_1
-    (ties by subject_id). Returns [model, subject_0, subject_1, cond_0, cond_1].
+    values count as the string "default". Each pair is ordered so cond_0 < cond_1:
+    reasoning effort by level (minimal < low < ... < max), anything else as
+    strings, ties by subject_id. Returns [model, subject_0, subject_1, cond_0, cond_1].
     """
     if factor not in _FACTORS:
         raise ValueError(f"factor must be one of {_FACTORS}, got {factor!r}")
@@ -159,7 +161,9 @@ def condition_pairs(subjects: pd.DataFrame, factor: str,
             for b in recs[i + 1:]:
                 if a[factor] == b[factor] or any(a[o] != b[o] for o in others):
                     continue
-                a2, b2 = sorted((a, b), key=lambda r: (r[factor], r["subject_id"]))
+                a2, b2 = sorted((a, b), key=lambda r: (
+                    _EFFORT.get(r[factor].lower(), 99) if factor == "reasoning_effort" else 0,
+                    r[factor], r["subject_id"]))
                 rows.append((model, a2["subject_id"], b2["subject_id"],
                              a2[factor], b2[factor]))
     return pd.DataFrame(rows, columns=["model", "subject_0", "subject_1",

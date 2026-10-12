@@ -47,3 +47,27 @@ def test_slope_array_is_keyed_by_label():
     by_dict = paired_dif(*cols, slope=dict(enumerate(a)), n_boot=20)
     by_array = paired_dif(*cols, slope=a, n_boot=20)
     assert by_dict.stat == pytest.approx(by_array.stat)
+
+
+def test_dtf_detects_one_sided_and_cancels_balanced():
+    import pandas as pd
+    from benchdif.dif import paired_dtf
+
+    def frame(one_sided):
+        rng = np.random.default_rng(4)
+        d = np.zeros(150); d[:30] = 2.0 if one_sided else np.where(np.arange(30) % 2, -2.0, 2.0)
+        b = rng.normal(0, 1.5, 150)
+        rows = []
+        for m in range(4):
+            eta = rng.normal() - b + rng.normal(0, 1, 150)
+            rows.append(pd.DataFrame({"cell": f"m{m}", "item_id": np.arange(150),
+                                      "k0": rng.binomial(8, 1 / (1 + np.exp(-eta))), "n0": 8,
+                                      "k1": rng.binomial(8, 1 / (1 + np.exp(-(eta + 0.8 + d)))),
+                                      "n1": 8}))
+        c = pd.concat(rows, ignore_index=True)
+        return pd.concat([paired_dtf(c[c.cell != m], c[c.cell == m]) for m in c.cell.unique()])
+
+    one, bal = frame(True), frame(False)   # same draws, only the DIF signs differ
+    assert one.G_obs.mean() - bal.G_obs.mean() > 0.02
+    assert one.G_pred.mean() - bal.G_pred.mean() > 0.02
+    assert (one.gap > one.G_obs).all()     # impact carries most of the gap
