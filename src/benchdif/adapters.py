@@ -134,3 +134,117 @@ def from_lm_eval(sample_files: dict, metric: str = "acc", threshold: float = 0.5
                 val = float(val[0] if isinstance(val, (list, tuple)) else val)
                 rows.append({"model": model, "doc_id": did, "correct": val})
     return pd.DataFrame(rows)
+
+
+_FACTORS = ("harness", "reasoning_effort", "harness_version")
+
+
+def condition_pairs(subjects: pd.DataFrame, factor: str,
+                    model_key: str = "normalized_name") -> pd.DataFrame:
+    """Pairs of subjects (same model) differing in `factor` and equal in the others.
+
+    `factor` is one of harness / reasoning_effort / harness_version. Null factor
+    values count as the string "default". Each pair is ordered so cond_0 < cond_1
+    (ties by subject_id). Returns [model, subject_0, subject_1, cond_0, cond_1].
+    """
+    if factor not in _FACTORS:
+        raise ValueError(f"factor must be one of {_FACTORS}, got {factor!r}")
+    others = [f for f in _FACTORS if f != factor]
+    s = subjects.dropna(subset=[model_key])
+    s = s.assign(**{f: s[f].fillna("default").astype(str) for f in _FACTORS})
+    rows = []
+    for model, g in s.groupby(model_key, sort=True):
+        recs = g[["subject_id", factor] + others].to_dict("records")
+        for i, a in enumerate(recs):
+            for b in recs[i + 1:]:
+                if a[factor] == b[factor] or any(a[o] != b[o] for o in others):
+                    continue
+                a2, b2 = sorted((a, b), key=lambda r: (r[factor], r["subject_id"]))
+                rows.append((model, a2["subject_id"], b2["subject_id"],
+                             a2[factor], b2[factor]))
+    return pd.DataFrame(rows, columns=["model", "subject_0", "subject_1",
+                                       "cond_0", "cond_1"])
+
+
+def paired_counts(responses: pd.DataFrame, pairs: pd.DataFrame,
+                  min_items: int = 30) -> pd.DataFrame:
+    """Per-item success counts for each pair, on shared binary items.
+
+    `pairs` is the output of `condition_pairs`. NaN responses are dropped; an item
+    is kept only if every observed response is 0/1 for both subjects and both
+    observed it. Cells (id "model|cond_0|cond_1") with fewer than `min_items`
+    such items are dropped. Returns [model, cell, item_id, k0, n0, k1, n1].
+    """
+    cols = ["model", "cell", "item_id", "k0", "n0", "k1", "n1"]
+    r = responses.dropna(subset=["response"])
+    r = r.assign(nb=~r["response"].isin([0.0, 1.0]))
+    agg = (r.groupby(["subject_id", "item_id"])
+             .agg(k=("response", "sum"), n=("response", "size"), nb=("nb", "sum"))
+             .reset_index())
+    by_subject = {s: g for s, g in agg.groupby("subject_id")}
+    empty = agg.iloc[:0]
+    out = []
+    for p in pairs.itertuples(index=False):
+        a = by_subject.get(p.subject_0, empty)
+        b = by_subject.get(p.subject_1, empty)
+        m = a.merge(b, on="item_id", suffixes=("0", "1"))
+        m = m[(m["nb0"] == 0) & (m["nb1"] == 0)]
+        if len(m) < min_items:
+            continue
+        m = m.assign(model=p.model, cell=f"{p.model}|{p.cond_0}|{p.cond_1}")
+        out.append(m[cols].astype(
+            {"k0": int, "n0": int, "k1": int, "n1": int}))
+    if not out:
+        return pd.DataFrame(columns=cols)
+    return pd.concat(out, ignore_index=True)
+
+
+def eligible_cells(responses: pd.DataFrame, subjects: pd.DataFrame, factor: str,
+                   min_items: int = 30,
+                   model_key: str = "normalized_name") -> pd.DataFrame:
+    """One row per analysable (model, condition pair) cell with its basic stats.
+
+    Returns [model, cell, cond_0, cond_1, subject_0, subject_1, n_items,
+    trials_0, trials_1, mean_0, mean_1]; trials = median trials per item,
+    mean = success rate, both over the shared binary items.
+    """
+    cols = ["model", "cell", "cond_0", "cond_1", "subject_0", "subject_1",
+            "n_items", "trials_0", "trials_1", "mean_0", "mean_1"]
+    pairs = condition_pairs(subjects, factor, model_key)
+    counts = paired_counts(responses, pairs, min_items)
+    if counts.empty:
+        return pd.DataFrame(columns=cols)
+    pairs = pairs.assign(cell=pairs["model"] + "|" + pairs["cond_0"] + "|" + pairs["cond_1"])
+    g = counts.groupby("cell", sort=False)
+    st = pd.DataFrame({
+        "n_items": g.size(),
+        "trials_0": g["n0"].median(), "trials_1": g["n1"].median(),
+        "mean_0": g["k0"].sum() / g["n0"].sum(),
+        "mean_1": g["k1"].sum() / g["n1"].sum(),
+    }).reset_index()
+    return st.merge(pairs, on="cell")[cols].reset_index(drop=True)
+
+
+def runs_matrix(responses: pd.DataFrame, subject_ids, items=None):
+    """Stack each (subject, trial) run as a row of a 0/1 matrix for person-level DIF.
+
+    Columns are `items` (default: binary items observed in every run); runs not
+    complete on those items are dropped. Returns (X, persons) with persons a
+    DataFrame [subject_id, trial] in row order.
+    """
+    r = responses[responses["subject_id"].isin(list(subject_ids))]
+    r = r.dropna(subset=["response"])
+    if items is None:
+        nonbin = r.loc[~r["response"].isin([0.0, 1.0]), "item_id"].unique()
+        runs = r[["subject_id", "trial"]].drop_duplicates()
+        seen = r.groupby("item_id").apply(
+            lambda d: len(d[["subject_id", "trial"]].drop_duplicates()),
+            include_groups=False)
+        items = sorted(i for i in seen.index[seen == len(runs)] if i not in set(nonbin))
+    items = list(items)
+    wide = r[r["item_id"].isin(items)].pivot_table(
+        index=["subject_id", "trial"], columns="item_id", values="response",
+        aggfunc="first").reindex(columns=items)
+    wide = wide.dropna()
+    persons = wide.index.to_frame(index=False)
+    return wide.to_numpy().astype(int), persons
