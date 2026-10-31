@@ -2,8 +2,12 @@
 
 **Differential item functioning (DIF) and measurement invariance for AI evaluations.**
 
+**Result:** across 395 Open LLM Leaderboard models and 5 benchmarks, item-level DIF between Mistral- and Llama-2-derived models runs 6.1 to 9.7 times the binomial null, and it cancels almost exactly at the test level: 278 items favour one family and 293 the other.
+
+Write-up: [abhaymettu.com/research/benchdif](https://abhaymettu.com/research/benchdif/)
+
 Benchmark scores are treated as if a question means the same thing to every model.
-Often it doesn't — an item can be systematically easier for one model family,
+Often it doesn't: an item can be systematically easier for one model family,
 language, or prompt style at equal overall ability. That's *differential item
 functioning*, and psychometrics has rigorous tests for it. `benchdif` brings those
 tests to LLM/AI benchmarks.
