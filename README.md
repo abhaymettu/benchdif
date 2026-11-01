@@ -4,7 +4,7 @@ Benchmark items behave differently for different model families. Across 395 Open
 
 Part of [benchmeasure](https://github.com/abhaymettu/benchmeasure), benchmarks treated as measurement instruments: reliability ([agent-validity-ceiling](https://github.com/abhaymettu/agent-validity-ceiling)), invariance (this repo), and the scorer ([judge-reliability](https://github.com/abhaymettu/judge-reliability)). Paper: [benchmeasure.pdf](https://github.com/abhaymettu/benchmeasure/blob/main/paper/benchmeasure.pdf).
 
-![Per-item family gap variance over its binomial null (6.1x to 9.7x) and the held-out swing of a 100-item subset (0.50 to 0.95) next to the full-benchmark gap (0.0005 to 0.19), five benchmarks](figures/hero.png)
+![Per-item family gap variance over its binomial null (6.1x to 9.7x) and the held-out difference between the two most adversarial 100-item subsets (0.50 to 0.95) next to the full-benchmark gap (0.0005 to 0.19), five benchmarks](figures/hero.png)
 
 benchdif is a Python library for differential item functioning (DIF) and measurement invariance on AI benchmarks. A model is a test taker, a question is an item, and the group is a model family, a harness or a reasoning-effort setting. It asks whether a question is easier for one group at equal overall ability. Write-up: [abhaymettu.com/research/benchdif](https://abhaymettu.com/research/benchdif/).
 

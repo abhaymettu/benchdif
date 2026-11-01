@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "benchmark task names such as harness_hendrycksTest_professional_law_5 look like keys"
+regexes = ['''harness_[A-Za-z_]+_\d+''']
