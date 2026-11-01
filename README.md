@@ -1,6 +1,8 @@
 # benchdif
 
-Benchmark items behave differently for different model families. Across 395 Open LLM Leaderboard models the effect runs 6 to 10 times sampling noise per item, cancels almost exactly in the full score, and comes back in full when you score a 100-item subset.
+Some benchmark questions are easier for one family of models than another at the same overall ability. benchdif
+measures that with differential item functioning, the standard check for whether a test question is fair across
+groups. Across 395 Open LLM Leaderboard models the effect runs 6 to 10 times sampling noise per item, cancels almost exactly in the full score, and comes back in full when you score a 100-item subset.
 
 Part of [benchmeasure](https://github.com/abhaymettu/benchmeasure), benchmarks treated as measurement instruments: reliability ([agent-validity-ceiling](https://github.com/abhaymettu/agent-validity-ceiling)), invariance (this repo), and the scorer ([judge-reliability](https://github.com/abhaymettu/judge-reliability)). Paper: [benchmeasure.pdf](https://github.com/abhaymettu/benchmeasure/blob/main/paper/benchmeasure.pdf).
 
