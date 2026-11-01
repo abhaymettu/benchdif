@@ -43,7 +43,7 @@ demo works. 10 tests green. Runtime deps: numpy/scipy/pandas only.
 
 ## Do next (in order)
 
-1. **Real-data demo — PARTIALLY DONE, blocked on data access.**
+1. **Real-data demo: PARTIALLY DONE, blocked on data access.**
    `adapters.from_lm_eval(...)` is built and tested (reads lm-eval-harness
    `--log_samples` JSONL into the long shape). BLOCKER: every compact per-item,
    per-model source found is gated. Open LLM Leaderboard v1/v2 `*-details` repos
@@ -55,7 +55,7 @@ demo works. 10 tests green. Runtime deps: numpy/scipy/pandas only.
    or (b) run lm-eval-harness locally on a few small models with --log_samples and
    feed the dir to from_lm_eval. Then write examples/real_leaderboard.py. This is
    the "generational" proof and the top priority once a token exists.
-2. **IRT-based DIF** — DONE (IRT-LR). 2PL MML-EM backend + anchor-purified
+2. **IRT-based DIF**: DONE (IRT-LR). 2PL MML-EM backend + anchor-purified
    IRT-LR test (`benchdif.irt_lr`), validated: full power, ~0% FPR with DIF
    present, size ~0.03 under pure impact (validation/validate_irt_lr.py). The
    naive all-shared baseline over-flagged (35% FPR from anchor contamination);
@@ -69,13 +69,13 @@ demo works. 10 tests green. Runtime deps: numpy/scipy/pandas only.
    concurrent multi-group 2PL with anchor items, comparing the studied item
    constrained-equal vs freed across groups via an LR chi-square. Alternative:
    Lord's Wald chi-square / Raju's signed+unsigned area, which need cross-group
-   linking (mean-mean or Stocking-Lord on anchors) — the linking is the crux and
+   linking (mean-mean or Stocking-Lord on anchors); the linking is the crux and
    must be validated (simulate group-specific params, confirm recovery + correct
    flags). Do NOT ship the DIF test until it's validated the same way.
 3. **Logistic purification** (mirror the MH purify loop).
 4. **Freeze fixtures**: store statsmodels reference values as CSV in tests/ so the
    cross-check tests need no statsmodels at runtime (currently importorskip).
-5. **Measurement-invariance omnibus** — DONE. `benchdif.invariance` runs the
+5. **Measurement-invariance omnibus**: DONE. `benchdif.invariance` runs the
    configural -> metric -> scalar LR ladder on the multi-group 2PL, validated:
    invariant data never rejects despite impact (0/8), intercept-DIF localizes to
    scalar (0/8 metric, 8/8 scalar), loading-DIF triggers metric (8/8). See

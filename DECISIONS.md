@@ -2,13 +2,13 @@
 
 Analysis/design choices, written as they are made. Newest first.
 
-## 2026-08-26 — Project start
+## 2026-08-26: Project start
 
 **What this is.** `benchdif`: a Python library for differential item functioning
 (DIF) and measurement invariance, aimed at AI/LLM evaluations. The bet: the field
 is realizing benchmarks lack validity (NeurIPS 2025 reviewed 445 benchmarks on
 construct validity) but no open tool operationalizes DIF/invariance for evals.
-`py-irt`/`IRTorch`/`PSN-IRT` estimate item difficulty; `LangFair` does fairness —
+`py-irt`/`IRTorch`/`PSN-IRT` estimate item difficulty; `LangFair` does fairness;
 none do DIF. This fills that hole.
 
 **Correctness before features.** Every method is cross-checked numerically against
@@ -33,9 +33,9 @@ Adapters reshape benchmark result files into the (person x item, group) matrix D
 needs. This is what makes it a benchmarking tool, not a re-implementation of difR.
 
 **Stack.** Python 3.12, numpy/scipy/pandas, statsmodels for logistic (matches R glm).
-uv for env. Not R — the point is a Python-native tool for the ML world.
+uv for env. Not R: the point is a Python-native tool for the ML world.
 
-## 2026-08-27 — IRT backend + real-data adapter
+## 2026-08-27: IRT backend + real-data adapter
 
 **2PL by hand, not py-irt.** Implemented Bock-Aitkin MML-EM in numpy/scipy rather
 than depend on py-irt (torch/pyro). Keeps runtime deps light (the adoption bet) and
@@ -49,7 +49,7 @@ ungated multi-model per-question dataset surfaced. Built and tested `from_lm_eva
 (reads lm-eval-harness --log_samples JSONL) so the pipeline is ready the moment
 real logs exist; documented the token/local-run paths in NEXT.md.
 
-## 2026-08-27 — IRT-LR DIF, and the anchor-contamination fix
+## 2026-08-27: IRT-LR DIF, and the anchor-contamination fix
 
 Added IRT likelihood-ratio DIF on the 2PL backend, with a freed focal ability
 distribution so group impact is not read as DIF. First cut used an all-items-shared

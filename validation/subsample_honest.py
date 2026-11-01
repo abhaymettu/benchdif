@@ -14,7 +14,7 @@ import sys
 import numpy as np
 
 PATH = sys.argv[1]
-KEY = "harness_hendrycksTest_professional_law_5"
+KEY = sys.argv[2] if len(sys.argv) > 2 else "harness_hendrycksTest_professional_law_5"
 K = 100
 
 
